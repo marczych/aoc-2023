@@ -10,6 +10,19 @@ import (
 
 const valueNotFound = -1
 
+var numberWords = [...]string{
+	"zero",
+	"one",
+	"two",
+	"three",
+	"four",
+	"five",
+	"six",
+	"seven",
+	"eight",
+	"nine",
+}
+
 func main() {
 	filePath := flag.String("file", "", "input file")
 	flag.Parse()
@@ -26,17 +39,45 @@ func main() {
 		first := valueNotFound
 		last := valueNotFound
 		line := scanner.Text()
+		lineLength := len(line)
 
-		for _, char := range line {
+		for linePosition, char := range line {
+			currentNumber := valueNotFound
+
 			if char >= '0' && char <= '9' {
-				if first == valueNotFound {
-					first = int(char - '0')
+				currentNumber = int(char - '0')
+			} else {
+				charactersRemaining := lineLength - linePosition
+
+			WORD_LOOP:
+				for number, word := range numberWords {
+					if len(word) > charactersRemaining {
+						continue
+					}
+
+					for charPosition, numberChar := range word {
+						if numberChar != rune(line[linePosition+charPosition]) {
+							continue WORD_LOOP
+						}
+					}
+
+					// We found the number!
+					currentNumber = number
+					break
 				}
-				last = int(char - '0')
+			}
+
+			if currentNumber != valueNotFound {
+				if first == valueNotFound {
+					first = currentNumber
+				}
+				last = currentNumber
 			}
 		}
 
-		total += (first * 10) + last
+		if first != valueNotFound && last != valueNotFound {
+			total += (first * 10) + last
+		}
 	}
 
 	fmt.Println(total)
