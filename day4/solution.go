@@ -58,20 +58,15 @@ func main() {
 	}
 	defer file.Close()
 
-	total := 0
+	cardCopies := make(map[int]int)
+
+	cardNumber := 0
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
+		cardNumber += 1
 		line := scanner.Text()
 		winningNumbers := getWinningNumbers(line)
-		linePointTotal := 0
-
-		addPoint := func() {
-			if linePointTotal == 0 {
-				linePointTotal = 1
-			} else {
-				linePointTotal = linePointTotal * 2
-			}
-		}
+		matchingNumberCount := 0
 
 		currentNumber := 0
 		for i := strings.Index(line, ":") + 2; line[i] != '|'; i += 1 {
@@ -87,13 +82,20 @@ func main() {
 			}
 
 			if slices.Contains(winningNumbers, currentNumber) {
-				addPoint()
+				matchingNumberCount += 1
 			}
 
 			currentNumber = 0
 		}
 
-		total += linePointTotal
+		for copyNumber := cardNumber + 1; copyNumber < cardNumber+1+matchingNumberCount; copyNumber += 1 {
+			cardCopies[copyNumber] += cardCopies[cardNumber] + 1
+		}
+	}
+
+	total := cardNumber
+	for _, copyCount := range cardCopies {
+		total += copyCount
 	}
 
 	fmt.Println(total)
