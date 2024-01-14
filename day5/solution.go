@@ -10,16 +10,27 @@ import (
 	"strings"
 )
 
-var CONSUMED_NUMBER = -1
+var EMPTY_RANGE = Range{0, 0}
 
-func getSeeds(line string) []int {
+type Range struct {
+	start  int
+	length int
+}
+
+func getSeeds(line string) []Range {
 	splitLine := strings.Split(line, " ")
-	seeds := make([]int, 0, len(splitLine)-1)
-	for i, seedString := range splitLine {
-		if i == 0 {
+	// Must be odd because of the "seeds:" prefix.
+	if len(splitLine)%2 != 1 {
+		log.Fatal(fmt.Sprintf("Invalid seed line: %s", line))
+	}
+
+	seeds := make([]Range, 0)
+	for i := range splitLine {
+		if i%2 == 0 {
 			continue
 		}
-		seeds = append(seeds, parseNumber(seedString))
+
+		seeds = append(seeds, Range{parseNumber(splitLine[i]), parseNumber(splitLine[i+1])})
 	}
 
 	return seeds
@@ -34,12 +45,12 @@ func parseNumber(input string) int {
 	return number
 }
 
-func getMin(values []int) int {
-	minimum := values[0]
+func getMin(ranges []Range) int {
+	minimum := ranges[0].start
 
-	for _, value := range values {
-		if value < minimum {
-			minimum = value
+	for _, rangeValue := range ranges {
+		if rangeValue.start < minimum {
+			minimum = rangeValue.start
 		}
 	}
 
@@ -60,17 +71,18 @@ func main() {
 
 	scanner.Scan()
 	values := getSeeds(scanner.Text())
-	newValues := make([]int, 0, len(values))
+	fmt.Println(values)
+	newValues := make([]Range, 0, len(values))
 
 	copyUnusedToNewValues := func() {
 		for _, value := range values {
-			if value != CONSUMED_NUMBER {
+			if value.length != 0 {
 				newValues = append(newValues, value)
 			}
 		}
 
 		values = newValues
-		newValues = make([]int, 0, len(values))
+		newValues = make([]Range, 0, len(values))
 	}
 
 	// Start the loop to convert the existing values to the next "phase" e.g.
@@ -91,13 +103,32 @@ func main() {
 			log.Fatal(fmt.Sprintf("Invalid line: %s", line))
 		}
 		destinationStart := parseNumber(splitLine[0])
-		sourceStart := parseNumber(splitLine[1])
-		sourceEnd := sourceStart + parseNumber(splitLine[2])
+		sourceRange := Range{parseNumber(splitLine[1]), parseNumber(splitLine[2])}
 
-		for i, value := range values {
-			if value >= sourceStart && value <= sourceEnd {
-				newValues = append(newValues, destinationStart+(value-sourceStart))
-				values[i] = CONSUMED_NUMBER
+		for i := 0; i < len(values); i++ {
+			valueRange := values[i]
+
+			if valueRange.length == 0 {
+				continue
+			}
+
+			if valueRange.start < sourceRange.start && valueRange.start+valueRange.length > sourceRange.start {
+				// Split the range into two.
+				values = append(values, Range{valueRange.start, sourceRange.start - valueRange.start})
+				valueRange = Range{sourceRange.start, valueRange.start - sourceRange.start + valueRange.length}
+			}
+
+			if valueRange.start >= sourceRange.start && valueRange.start < sourceRange.start+sourceRange.length {
+				rangeSplit := min(valueRange.start+valueRange.length, sourceRange.start+sourceRange.length)
+				includedRange := Range{destinationStart + valueRange.start - sourceRange.start, rangeSplit - valueRange.start}
+				newValues = append(newValues, includedRange)
+
+				extraRangeLength := valueRange.start + valueRange.length - rangeSplit
+				if extraRangeLength > 0 {
+					values[i] = Range{rangeSplit, extraRangeLength}
+				} else {
+					values[i] = EMPTY_RANGE
+				}
 			}
 		}
 	}
