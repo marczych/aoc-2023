@@ -7,8 +7,6 @@ import (
 	"log"
 	"math"
 	"os"
-	"strconv"
-	"strings"
 )
 
 func solveQuadratic(a float64, b float64, c float64) (float64, float64) {
@@ -19,27 +17,12 @@ func solveQuadratic(a float64, b float64, c float64) (float64, float64) {
 	return negativeValue, positiveValue
 }
 
-func getNumbers(line string) []int {
-	splitLine := strings.Split(line, " ")
-
-	numbers := make([]int, 0)
-	for i := range splitLine {
-		token := splitLine[i]
-		if i == 0 || token == "" {
-			// Skip the prefix.
-			continue
+func getNumber(line string) int {
+	number := 0
+	for _, char := range line {
+		if char >= '0' && char <= '9' {
+			number = number*10 + int(char-'0')
 		}
-
-		numbers = append(numbers, parseNumber(token))
-	}
-
-	return numbers
-}
-
-func parseNumber(input string) int {
-	number, err := strconv.Atoi(input)
-	if err != nil {
-		log.Fatal(fmt.Sprintf("Invalid number: %s", err))
 	}
 
 	return number
@@ -57,29 +40,13 @@ func main() {
 
 	scanner := bufio.NewScanner(file)
 	scanner.Scan()
-	times := getNumbers(scanner.Text())
+	time := getNumber(scanner.Text())
 	scanner.Scan()
-	distances := getNumbers(scanner.Text())
+	distance := getNumber(scanner.Text())
 
-	if len(times) != len(distances) {
-		log.Fatal(
-			fmt.Sprintf("Mismatched length of times and distances: %d vs. %d",
-				len(times),
-				len(distances),
-			),
-		)
-	}
-
-	total := 1
-	for i := range times {
-		time := times[i]
-		distance := distances[i]
-		// Add one because we need to _beat_ the winning distance.
-		start, end := solveQuadratic(1, float64(-time), float64(distance+1))
-		// Add one because it's an inclusive range.
-		winningTimeCount := int(math.Floor(end)) - int(math.Ceil(start)) + 1
-		total = total * winningTimeCount
-	}
-
-	fmt.Println(total)
+	// Add one because we need to _beat_ the winning distance.
+	start, end := solveQuadratic(1, float64(-time), float64(distance+1))
+	// Add one because it's an inclusive range.
+	winningTimeCount := int(math.Floor(end)) - int(math.Ceil(start)) + 1
+	fmt.Println(winningTimeCount)
 }
