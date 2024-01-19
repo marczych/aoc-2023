@@ -1,3 +1,4 @@
+import math
 import argparse
 import dataclasses
 
@@ -22,15 +23,26 @@ def main(input_file: str) -> None:
                 map[node] = Node(left=left[1:-1], right=right[:-1])
 
     instruction_count = 0
-    current_node = "AAA"
-    while current_node != "ZZZ":
-        if instructions[instruction_count % len(instructions)] == "L":
-            current_node = map[current_node].left
-        else:
-            current_node = map[current_node].right
+    periods: list[int] = []
+    current_nodes = [node for node in map if node.endswith("A")]
+    while current_nodes:
+        instruction = instructions[instruction_count % len(instructions)]
         instruction_count += 1
 
-    print(instruction_count)
+        i = 0
+        while i < len(current_nodes):
+            if instruction == "L":
+                current_nodes[i] = map[current_nodes[i]].left
+            else:
+                current_nodes[i] = map[current_nodes[i]].right
+
+            if current_nodes[i].endswith("Z"):
+                periods.append(instruction_count)
+                del current_nodes[i]
+            else:
+                i += 1
+
+    print(math.lcm(*periods))
 
 
 if __name__ == "__main__":
