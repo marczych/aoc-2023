@@ -20,6 +20,7 @@ def main(input_file: str) -> None:
     with open(input_file, encoding="utf-8") as input:
         for line in (l.rstrip("\n") for l in input):
             values = [int(x) for x in line.split(" ")]
+            values.reverse()
             total += get_next_value(values)
 
     print(total)
