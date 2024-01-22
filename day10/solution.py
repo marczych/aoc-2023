@@ -25,15 +25,19 @@ class Coordinate:
 
 
 class Connection(Enum):
-    NORTH = Coordinate(x=0, y=-1)
-    EAST = Coordinate(x=1, y=0)
-    SOUTH = Coordinate(x=0, y=1)
     WEST = Coordinate(x=-1, y=0)
+    NORTH = Coordinate(x=0, y=-1)
+    SOUTH = Coordinate(x=0, y=1)
+    EAST = Coordinate(x=1, y=0)
 
 
 @dataclasses.dataclass(frozen=True)
 class Node:
     connections: list[Coordinate]
+    is_closed_corner: bool = False
+
+    def __post_init__(self) -> None:
+        assert self.connections == sorted(self.connections), "Connections not sorted!"
 
     @property
     def is_starting_location(self) -> bool:
@@ -42,17 +46,23 @@ class Node:
 
 NODES = {
     "|": Node(connections=[Connection.NORTH.value, Connection.SOUTH.value]),
-    "-": Node(connections=[Connection.EAST.value, Connection.WEST.value]),
-    "L": Node(connections=[Connection.NORTH.value, Connection.EAST.value]),
-    "J": Node(connections=[Connection.NORTH.value, Connection.WEST.value]),
-    "7": Node(connections=[Connection.WEST.value, Connection.SOUTH.value]),
-    "F": Node(connections=[Connection.EAST.value, Connection.SOUTH.value]),
+    "-": Node(connections=[Connection.WEST.value, Connection.EAST.value]),
+    "L": Node(
+        connections=[Connection.NORTH.value, Connection.EAST.value],
+        is_closed_corner=True,
+    ),
+    "J": Node(connections=[Connection.WEST.value, Connection.NORTH.value]),
+    "7": Node(
+        connections=[Connection.WEST.value, Connection.SOUTH.value],
+        is_closed_corner=True,
+    ),
+    "F": Node(connections=[Connection.SOUTH.value, Connection.EAST.value]),
     "S": Node(
         connections=[
-            Connection.NORTH.value,
-            Connection.EAST.value,
-            Connection.SOUTH.value,
             Connection.WEST.value,
+            Connection.NORTH.value,
+            Connection.SOUTH.value,
+            Connection.EAST.value,
         ]
     ),
 }
@@ -61,17 +71,19 @@ NODES = {
 def main(input_file: str) -> None:
     graph: dict[Coordinate, Node] = {}
     starting_location: Coordinate | None = None
+    size_x = 0
+    size_y = 0
 
     # Parse the graph.
     with open(input_file, encoding="utf-8") as input:
-        y = 0
         for line in (l.rstrip("\n") for l in input):
+            size_x = len(line)
             for x in range(len(line)):
                 if node := NODES.get(line[x]):
-                    graph[Coordinate(x=x, y=y)] = node
+                    graph[Coordinate(x=x, y=size_y)] = node
                     if line[x] == "S":
-                        starting_location = Coordinate(x=x, y=y)
-            y += 1
+                        starting_location = Coordinate(x=x, y=size_y)
+            size_y += 1
 
     assert starting_location, "Starting location not found!"
 
@@ -85,13 +97,21 @@ def main(input_file: str) -> None:
 
         node = graph[coordinate]
         if node.is_starting_location:
-            valid_connections = [
-                connection
-                for connection in node.connections
-                if is_valid_connection(connection)
-            ]
+            valid_connections = sorted(
+                [
+                    connection
+                    for connection in node.connections
+                    if is_valid_connection(connection)
+                ]
+            )
             assert len(valid_connections) == 2, "Invalid starting location!"
-            graph[coordinate] = Node(connections=valid_connections)
+            graph[coordinate] = Node(
+                connections=valid_connections,
+                is_closed_corner=any(
+                    node.is_closed_corner and valid_connections == node.connections
+                    for node in NODES.values()
+                ),
+            )
         elif not all(is_valid_connection(offset) for offset in node.connections):
             del graph[coordinate]
 
@@ -124,7 +144,28 @@ def main(input_file: str) -> None:
         else:
             assert "Failed to find next node!"
 
-    print(len(main_loop) // 2)
+    # Use a raytracing method to count the number of intersections with the
+    # loop to determine how many tiles are inside the loop. Because we are
+    # raytracing "down and to the right", ignore "L" and "7" as they are
+    # "closed corners".
+    enclosed_tile_count = 0
+    for x in range(size_x):
+        for y in range(size_y):
+            if Coordinate(x=x, y=y) in main_loop:
+                continue
+            intersection_count = 0
+            offset = 0
+
+            while x + offset < size_x and y + offset < size_y:
+                offset += 1
+                node = main_loop.get(Coordinate(x=x + offset, y=y + offset))
+                # Ignore closed corners because the rays go in and out.
+                if node and not node.is_closed_corner:
+                    intersection_count += 1
+            if intersection_count % 2 == 1:
+                enclosed_tile_count += 1
+
+    print(enclosed_tile_count)
 
 
 if __name__ == "__main__":
