@@ -8,6 +8,8 @@ import (
 	"os"
 )
 
+var EXPANSION_SIZE = 999999
+
 type Galaxy struct {
 	x int
 	y int
@@ -50,7 +52,7 @@ func main() {
 			}
 		}
 		if !foundGalaxy {
-			y += 1
+			y += EXPANSION_SIZE
 		}
 		y += 1
 	}
@@ -59,7 +61,7 @@ func main() {
 		xOffset := 0
 		for x := 0; x < galaxy.x; x += 1 {
 			if _, ok := xGalaxies[x]; !ok {
-				xOffset += 1
+				xOffset += EXPANSION_SIZE
 			}
 		}
 		if xOffset != 0 {
