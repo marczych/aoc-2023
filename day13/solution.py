@@ -1,19 +1,21 @@
 import argparse
+from collections import defaultdict
 
 
 def _puzzle_value_helper(puzzle: list[str]) -> int | None:
-    possible_pivots = {*range(1, len(puzzle[0]))}
+    pivot_matches: dict[int, int] = defaultdict(int)
+
     for line in puzzle:
-        for pivot in {*possible_pivots}:
+        for pivot in range(1, len(line)):
             size = min(pivot, len(line) - pivot)
             left = line[pivot - size : pivot]
             right = line[pivot + size - 1 : pivot - 1 : -1]
 
-            if left != right:
-                possible_pivots.remove(pivot)
+            if left == right:
+                pivot_matches[pivot] += 1
 
-    if len(possible_pivots) == 1:
-        for pivot in possible_pivots:
+    for pivot, count in pivot_matches.items():
+        if count == len(puzzle) - 1:
             return pivot
 
     return None
