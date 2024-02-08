@@ -18,10 +18,8 @@ type Contraption struct {
 	beams map[int]map[int]bool
 }
 
-func createContraption() Contraption {
-	contraption := Contraption{}
+func (contraption *Contraption) Reset() {
 	contraption.beams = make(map[int]map[int]bool)
-	return contraption
 }
 
 func (contraption Contraption) Get(x int, y int) rune {
@@ -56,12 +54,13 @@ func (contraption Contraption) doesBeamExist(x int, y int, xVel int, yVel int) b
 	return velocityOk
 }
 
-func (contraption *Contraption) GetEnergizedTileCount() int {
-	contraption.fireBeam(0, 0, 1, 0)
+func (contraption *Contraption) GetEnergizedTileCount(xPos int, yPos int, xVel int, yVel int) int {
+	contraption.Reset()
+	contraption.fireBeam(xPos, yPos, xVel, yVel)
 	return len(contraption.beams)
 }
 
-func (contraption Contraption) size() int {
+func (contraption Contraption) Size() int {
 	// Assume it's a square.
 	return len(contraption.rows)
 }
@@ -71,8 +70,8 @@ func (contraption *Contraption) fireBeam(xPos int, yPos int, xVel int, yVel int)
 		if contraption.doesBeamExist(xPos, yPos, xVel, yVel) ||
 			xPos < 0 ||
 			yPos < 0 ||
-			xPos >= contraption.size() ||
-			yPos >= contraption.size() {
+			xPos >= contraption.Size() ||
+			yPos >= contraption.Size() {
 			break
 		}
 		contraption.addBeam(xPos, yPos, xVel, yVel)
@@ -116,12 +115,27 @@ func main() {
 	}
 	defer file.Close()
 
-	contraption := createContraption()
+	contraption := Contraption{}
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
 		contraption.AddRow(line)
 	}
 
-	fmt.Println(contraption.GetEnergizedTileCount())
+	maxEnergizedTiles := 0
+	checkBeam := func(xPos int, yPos int, xVel int, yVel int) {
+		maxEnergizedTiles = max(maxEnergizedTiles, contraption.GetEnergizedTileCount(xPos, yPos, xVel, yVel))
+	}
+	size := contraption.Size()
+	for i := 0; i < size; i += 1 {
+		// Down from top.
+		checkBeam(i, 0, 0, 1)
+		// Up from bottom.
+		checkBeam(i, size-1, 0, -1)
+		// Right from left.
+		checkBeam(0, i, 1, 0)
+		// Up from bottom.
+		checkBeam(size-1, i, -1, 0)
+	}
+	fmt.Println(maxEnergizedTiles)
 }
