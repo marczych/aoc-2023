@@ -9,7 +9,8 @@ import (
 	"os"
 )
 
-var MAX_STRAIGHT_LINES = 3
+var MIN_STRAIGHT_LINES = 4
+var MAX_STRAIGHT_LINES = 10
 
 type LavaMap struct {
 	costs          []int
@@ -124,6 +125,11 @@ func main() {
 			}
 
 			cost += lavaMap.GetCost(x, y)
+
+			if offset < MIN_STRAIGHT_LINES {
+				continue
+			}
+
 			bestTotalCost := lavaMap.GetBestTotalCost(x, y, xScale, yScale)
 			if bestTotalCost == 0 || cost < bestTotalCost {
 				heap.Push(&priorityQueue, &Path{cost: cost, x: x, y: y, vertical: xFactor != 0, horizontal: yFactor != 0})
