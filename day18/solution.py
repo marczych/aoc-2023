@@ -1,92 +1,49 @@
 import argparse
+import dataclasses
 
 Position = tuple[int, int]
 
-DIRECTIONS: dict[str, Position] = dict(
-    U=(0, -1),
-    R=(1, 0),
-    D=(0, 1),
-    L=(-1, 0),
-)
+
+@dataclasses.dataclass(frozen=True)
+class Instruction:
+    direction: str
+    length: int
 
 
-def grid_debug_print(grid: set[Position], start: int, end: int) -> None:
-    for y in range(start, end + 1):
-        for x in range(start, end + 1):
-            print("#" if (x, y) in grid else ".", end="")
-        print()
+DIRECTIONS: dict[str, Position] = {
+    "3": (0, -1),
+    "0": (1, 0),
+    "1": (0, 1),
+    "2": (-1, 0),
+}
 
 
 def main(input_file: str) -> None:
-    grid: set[Position] = {(0, 0)}
-    xvel = 0
-    yvel = 0
-
-    xpos = 0
-    ypos = 0
-
-    xmin = 0
-    xmax = 0
-    ymin = 0
-    ymax = 0
-
+    instructions: list[Instruction] = []
     with open(input_file, encoding="utf-8") as input:
         for line in (l.rstrip("\n") for l in input):
-            (direction, length_string, _) = line.split(" ")
-            length = int(length_string)
-            xvel, yvel = DIRECTIONS[direction]
-            for _ in range(1, length + 1):
-                xpos += xvel
-                ypos += yvel
-                xmin = min(xmin, xpos)
-                xmax = max(xmax, xpos)
-                ymin = min(ymin, ypos)
-                ymax = max(ymax, ypos)
+            (_, _, raw_color) = line.split(" ")
+            color = raw_color[2:-1]
+            instructions.append(
+                Instruction(direction=color[-1], length=int(color[0:-1], 16))
+            )
 
-                grid.add((xpos, ypos))
+    xpos = 0
+    perimeter = 0
+    area = 0
+    for instruction in instructions:
+        direction = DIRECTIONS[instruction.direction]
 
-    xpos = min(xmin, ymin)
-    ypos = xpos
-    while True:
-        if (xpos, ypos) in grid:
-            # We found an edge.
+        dx = direction[0] * instruction.length
+        dy = direction[1] * instruction.length
 
-            """
-            ##
-             #
-            """
-            if (xpos - 1, ypos) in grid and (xpos, ypos + 1) in grid:
-                assert False, "Can't handle corner type 1!"
-            """
-            #
-            ##
-            """
-            if (xpos + 1, ypos) in grid and (xpos, ypos - 1) in grid:
-                assert False, "Can't handle corner type 2!"
+        # No need to keep track of y-position.
+        xpos = xpos + dx
 
-            xpos += 1
-            ypos += 1
-            break
+        perimeter += instruction.length
+        area += xpos * dy
 
-        xpos += 1
-        ypos += 1
-
-        if xpos > xmax or ypos > ymax:
-            assert False, "Couldn't find inside to start filling!"
-
-    # In fill.
-    positions_to_fill: set[Position] = {(xpos, ypos)}
-    while positions_to_fill:
-        xpos, ypos = positions_to_fill.pop()
-        for xoffset in range(-1, 2):
-            for yoffset in range(-1, 2):
-                position = (xpos + xoffset, ypos + yoffset)
-                if position not in grid:
-                    grid.add(position)
-                    positions_to_fill.add(position)
-
-    # grid_debug_print(grid, min(xmin, ymin), max(xmax, ymax))
-    print(len(grid))
+    print(area + perimeter // 2 + 1)
 
 
 if __name__ == "__main__":
