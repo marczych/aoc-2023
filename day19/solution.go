@@ -17,8 +17,28 @@ type Part struct {
 	s int
 }
 
-func (part Part) GetSum() int {
-	return part.x + part.m + part.a + part.s
+func (part Part) GetNewPart(category byte, predicate byte, predicateValue int, offsetMagnitude int) Part {
+	applyPredicate := func(value int) int {
+		if predicate == '>' {
+			return max(predicateValue+offsetMagnitude, value)
+		}
+		return min(predicateValue-offsetMagnitude, value)
+	}
+
+	newPart := part
+	switch category {
+	case 'x':
+		newPart.x = applyPredicate(newPart.x)
+	case 'm':
+		newPart.m = applyPredicate(newPart.m)
+	case 'a':
+		newPart.a = applyPredicate(newPart.a)
+	case 's':
+		newPart.s = applyPredicate(newPart.s)
+	default:
+		log.Fatal(fmt.Sprintf("Invalid category: %s", string(category)))
+	}
+	return newPart
 }
 
 type Rule struct {
@@ -28,37 +48,36 @@ type Rule struct {
 	result    string
 }
 
-func (rule Rule) GetResult(part Part) string {
-	if rule.category == '*' {
-		return rule.result
+func getValidCombinations(workflowsMap map[string][]Rule, workflowName string, minPart Part, maxPart Part) int {
+	if !(minPart.x <= maxPart.x && minPart.m <= maxPart.m && minPart.a <= maxPart.a && minPart.s <= maxPart.s) {
+		return 0
+	}
+	if workflowName == "R" {
+		return 0
+	}
+	if workflowName == "A" {
+		return (maxPart.x - minPart.x + 1) * (maxPart.m - minPart.m + 1) * (maxPart.a - minPart.a + 1) * (maxPart.s - minPart.s + 1)
 	}
 
-	partValue := 0
-	switch rule.category {
-	case 'x':
-		partValue = part.x
-	case 'm':
-		partValue = part.m
-	case 'a':
-		partValue = part.a
-	case 's':
-		partValue = part.s
-	default:
-		log.Fatal(fmt.Sprintf("Invalid category: %s", string(rule.category)))
+	workflow, found := workflowsMap[workflowName]
+	if !found {
+		log.Fatal(fmt.Sprintf("Invalid workflow: %s", workflowName))
 	}
 
-	switch rule.predicate {
-	case '>':
-		if partValue > rule.value {
-			return rule.result
+	total := 0
+	for _, rule := range workflow {
+		switch rule.predicate {
+		case '*':
+			total += getValidCombinations(workflowsMap, rule.result, minPart, maxPart)
+		case '>':
+			total += getValidCombinations(workflowsMap, rule.result, minPart.GetNewPart(rule.category, rule.predicate, rule.value, 1), maxPart)
+			maxPart = maxPart.GetNewPart(rule.category, '<', rule.value, 0)
+		case '<':
+			total += getValidCombinations(workflowsMap, rule.result, minPart, maxPart.GetNewPart(rule.category, rule.predicate, rule.value, 1))
+			minPart = minPart.GetNewPart(rule.category, '>', rule.value, 0)
 		}
-	case '<':
-		if partValue < rule.value {
-			return rule.result
-		}
 	}
-
-	return ""
+	return total
 }
 
 func parseNumber(input string) int {
@@ -113,39 +132,6 @@ func main() {
 		workflowsMap[workflowName] = rules
 	}
 
-	total := 0
-	for scanner.Scan() {
-		line := scanner.Text()
-		categoryStrings := strings.Split(line[1:len(line)-1], ",")
-		part := Part{
-			parseNumber(categoryStrings[0][2:]),
-			parseNumber(categoryStrings[1][2:]),
-			parseNumber(categoryStrings[2][2:]),
-			parseNumber(categoryStrings[3][2:]),
-		}
-
-		result := "in"
-		for {
-			rules, found := workflowsMap[result]
-			if !found {
-				log.Fatal(fmt.Sprintf("Workflow not found: %s", result))
-			}
-			for _, rule := range rules {
-				result = rule.GetResult(part)
-				if result != "" {
-					break
-				}
-			}
-
-			if result == "R" {
-				break
-			}
-			if result == "A" {
-				total += part.GetSum()
-				break
-			}
-		}
-	}
-
-	fmt.Println(total)
+	validCombinations := getValidCombinations(workflowsMap, "in", Part{1, 1, 1, 1}, Part{4000, 4000, 4000, 4000})
+	fmt.Println(validCombinations)
 }
