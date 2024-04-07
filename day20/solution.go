@@ -169,26 +169,30 @@ func main() {
 	}
 	defer file.Close()
 
-	lowPulseCount := 0
-	highPulseCount := 0
+	buttonPresses := 0
 	pulseQueue := make(chan PendingPulse, 1024)
 	modules := getModules(bufio.NewScanner(file))
+	dhHighPulses := make(map[string]int)
 
-	for i := 0; i < 1000; i += 1 {
+	for {
+		buttonPresses += 1
 		pulseQueue <- PendingPulse{"button", PULSE_LOW, "broadcaster"}
 
 	PULSE_LOOP:
 		for {
 			select {
 			case pendingPulse := <-pulseQueue:
-				pulseFormat := "-low->"
-				if pendingPulse.pulse == PULSE_LOW {
-					lowPulseCount += 1
-				} else {
-					pulseFormat = "-high->"
-					highPulseCount += 1
+				// Via inspection of the puzzle, `dh` is a conjunction with 4
+				// conjunction inputs. We record the first time each one sends
+				// a high signal; once they have all sent a high signal, we
+				// break out of the loop and multiply them all together to get
+				// the answer.
+				if pendingPulse.destinationModule == "dh" && pendingPulse.pulse == PULSE_HIGH {
+					_, found := dhHighPulses[pendingPulse.fromModule]
+					if !found {
+						dhHighPulses[pendingPulse.fromModule] = buttonPresses
+					}
 				}
-				fmt.Println(pendingPulse.fromModule, pulseFormat, pendingPulse.destinationModule)
 
 				module, found := modules[pendingPulse.destinationModule]
 				if found {
@@ -201,7 +205,14 @@ func main() {
 				break PULSE_LOOP
 			}
 		}
+		if len(dhHighPulses) == 4 {
+			break
+		}
 	}
 
-	fmt.Println(lowPulseCount, "*", highPulseCount, "=>", lowPulseCount*highPulseCount)
+	total := 1
+	for _, count := range dhHighPulses {
+		total = total * count
+	}
+	fmt.Println(total)
 }
