@@ -35,6 +35,30 @@ func NewBrick(startX int, startY int, startZ int, endX int, endY int, endZ int) 
 	}
 }
 
+func (brick *Brick) GetTotalBricksThatFall(removedBricks map[*Brick]bool) int {
+	allDepsRemoved := true
+	for depBrick := range brick.deps {
+		_, found := removedBricks[depBrick]
+		if !found {
+			allDepsRemoved = false
+			break
+		}
+	}
+
+	if !allDepsRemoved {
+		return 0
+	}
+
+	removedBricks[brick] = true
+	totalBricksThatFall := 1
+
+	for rdepBrick := range brick.rdeps {
+		totalBricksThatFall += rdepBrick.GetTotalBricksThatFall(removedBricks)
+	}
+
+	return totalBricksThatFall
+}
+
 func parseNumber(input string) int {
 	number, err := strconv.Atoi(input)
 	if err != nil {
@@ -120,20 +144,14 @@ func main() {
 		})
 	}
 
-	nonCriticalBrickCount := 0
+	totalFallingBrickCount := 0
 	for _, brick := range bricks {
-		isBrickCritical := false
+		removedBricks := make(map[*Brick]bool)
+		removedBricks[brick] = true
 		for rdepBrick := range brick.rdeps {
-			if len(rdepBrick.deps) == 1 {
-				isBrickCritical = true
-				break
-			}
-		}
-
-		if !isBrickCritical {
-			nonCriticalBrickCount += 1
+			totalFallingBrickCount += rdepBrick.GetTotalBricksThatFall(removedBricks)
 		}
 	}
 
-	fmt.Println(nonCriticalBrickCount)
+	fmt.Println(totalFallingBrickCount)
 }
