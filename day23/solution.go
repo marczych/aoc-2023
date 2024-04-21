@@ -5,62 +5,118 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"maps"
 	"os"
-	"strings"
 )
 
-func pathKey(x int, y int) int {
+type Junction struct {
+	x        int
+	y        int
+	segments []Segment
+	isEnd    bool
+}
+
+type Segment struct {
+	length       int
+	nextJunction *Junction
+}
+
+func junctionKey(x int, y int) int {
 	return x<<32 | y
 }
 
-func printMap(mapInput []string, path map[int]bool) {
-	fmt.Println("MAP:")
-	for y, line := range mapInput {
-		for x, tile := range line {
-			if _, found := path[pathKey(x, y)]; found {
-				fmt.Print("O")
-			} else {
-				fmt.Print(string(tile))
-			}
-		}
-		fmt.Println()
+func getTile(mapInput []string, x int, y int) byte {
+	if x < 0 || x >= len(mapInput) || y < 0 || y >= len(mapInput) {
+		return '#'
 	}
+
+	return mapInput[y][x]
 }
 
-func getLongestPath(mapInput []string, path map[int]bool, x int, y int) int {
-	key := pathKey(x, y)
-	_, found := path[key]
-	if x < 0 || x >= len(mapInput) || y < 0 || y >= len(mapInput) || found || mapInput[y][x] == '#' {
-		return -1
+func isPath(mapInput []string, x int, y int) bool {
+	return getTile(mapInput, x, y) != '#'
+}
+
+func buildJunctionGraph(mapInput []string) *Junction {
+	mapSize := len(mapInput)
+	var startJunction *Junction
+	junctionMap := make(map[int]*Junction)
+
+	pathCount := func(x int, y int) int {
+		if isPath(mapInput, x, y) {
+			return 1
+		}
+		return 0
 	}
 
-	currentTile := mapInput[y][x]
+	for y, line := range mapInput {
+		for x := range line {
+			if !isPath(mapInput, x, y) {
+				continue
+			}
 
-	if y == len(mapInput) - 1 && currentTile == '.' {
-		return len(path)
+			if y == 0 {
+				startJunction = &Junction{x, y, nil, false}
+				junctionMap[junctionKey(x, y)] = startJunction
+			} else if y == mapSize-1 {
+				endJunction := &Junction{x, y, nil, true}
+				junctionMap[junctionKey(x, y)] = endJunction
+			} else {
+				connectionCount := pathCount(x, y-1) + pathCount(x, y+1) + pathCount(x-1, y) + pathCount(x+1, y)
+
+				if connectionCount < 2 {
+					log.Fatal("Invalid connection count: ", x, y, connectionCount)
+				} else if connectionCount > 2 {
+					junctionMap[junctionKey(x, y)] = &Junction{x, y, nil, false}
+				}
+			}
+		}
 	}
 
-	// Copy on write.
-	path = maps.Clone(path)
-	path[key] = true
+	for _, junction := range junctionMap {
+		connectJunctions(mapInput, junctionMap, junction, junction.x, junction.y, -1, -1, 0)
+	}
 
-	switch currentTile {
-	case '^':
-		return getLongestPath(mapInput, path, x, y-1)
-	case 'v':
-		return getLongestPath(mapInput, path, x, y+1)
-	case '<':
-		return getLongestPath(mapInput, path, x-1, y)
-	case '>':
-		return getLongestPath(mapInput, path, x+1, y)
+	return startJunction
+}
+
+func connectJunctions(mapInput []string, junctionMap map[int]*Junction, junction *Junction, x int, y int, previousX int, previousY int, length int) {
+	if length > 0 {
+		newJunction, found := junctionMap[junctionKey(x, y)]
+		if found {
+			junction.segments = append(junction.segments, Segment{length, newJunction})
+			return
+		}
+	}
+	if !isPath(mapInput, x, y) {
+		return
+	}
+	next := func(newX int, newY int) {
+		if !(newX == previousX && newY == previousY) {
+			connectJunctions(mapInput, junctionMap, junction, newX, newY, x, y, length+1)
+		}
+	}
+	next(x, y-1)
+	next(x, y+1)
+	next(x-1, y)
+	next(x+1, y)
+}
+
+func findLongestPath(junction *Junction, path map[*Junction]bool, length int) int {
+	if junction.isEnd {
+		return length
 	}
 
 	longestPath := -1
-	longestPath = max(longestPath, getLongestPath(mapInput, path, x, y-1))
-	longestPath = max(longestPath, getLongestPath(mapInput, path, x, y+1))
-	longestPath = max(longestPath, getLongestPath(mapInput, path, x-1, y))
-	longestPath = max(longestPath, getLongestPath(mapInput, path, x+1, y))
+	path[junction] = true
+
+	for _, segment := range junction.segments {
+		_, found := path[segment.nextJunction]
+		if !found {
+			longestPath = max(longestPath, findLongestPath(segment.nextJunction, path, length+segment.length))
+		}
+	}
+
+	delete(path, junction)
 
 	return longestPath
 }
@@ -76,15 +132,11 @@ func main() {
 	defer file.Close()
 
 	mapInput := make([]string, 0, 1024)
-	startingXpos := -1
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		mapInput = append(mapInput, scanner.Text())
-		if startingXpos == -1 {
-			startingXpos = strings.Index(mapInput[0], ".")
-		}
 	}
 
-	longestPath := getLongestPath(mapInput, make(map[int]bool), startingXpos, 0)
-	fmt.Println(longestPath)
+	startJunction := buildJunctionGraph(mapInput)
+	fmt.Println(findLongestPath(startJunction, make(map[*Junction]bool), 0))
 }
